@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Download, Trash2, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
+import { Plus, Download, Trash2, FileSpreadsheet, AlertCircle } from 'lucide-react';
 
 // Interfaces for type safety
 interface MaintenanceItem {
