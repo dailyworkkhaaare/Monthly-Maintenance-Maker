@@ -1,150 +1,68 @@
 # Deployment Guide
 
-This guide covers how to deploy the **Office Maintenance Tracker** application using two popular methods: **Google Cloud Run** and **Vercel**.
-
-Since this is a React Single Page Application (SPA) built with Vite, the deployment strategy generally involves building the static assets and serving them.
+This guide details how to deploy the **Office Maintenance Tracker** to Vercel and Google Cloud Run.
 
 ---
 
-## Option 1: Vercel via GitHub (Recommended)
+## 1. Deploy to Vercel (via GitHub)
 
-Vercel is optimized for frontend frameworks and offers the simplest deployment process for this type of application.
-
-### Prerequisites
-*   A [GitHub](https://github.com/) account.
-*   A [Vercel](https://vercel.com/) account.
-*   Your project code pushed to a GitHub repository.
+Vercel is the easiest way to deploy this React application.
 
 ### Steps
-
-1.  **Push to GitHub:**
-    Ensure your latest code (including `index.html`, `package.json`, etc.) is committed and pushed to your repository.
-
-2.  **Import Project in Vercel:**
-    *   Log in to your Vercel dashboard.
-    *   Click **"Add New..."** -> **"Project"**.
-    *   Select "Import" next to your GitHub repository.
-
-3.  **Configure Project:**
-    Vercel should automatically detect that this is a **Vite** project. Verify the following settings in the "Configure Project" screen:
+1.  **Push to GitHub:** Ensure your project is pushed to a GitHub repository.
+2.  **Login to Vercel:** Go to [vercel.com](https://vercel.com) and sign in.
+3.  **Add New Project:** Click **"Add New..."** > **"Project"**.
+4.  **Import Repository:** Select your GitHub repository for this app.
+5.  **Configure Build:**
+    Vercel should automatically detect the framework. Confirm these settings:
     *   **Framework Preset:** `Vite`
-    *   **Root Directory:** `./` (default)
-    *   **Build Command:** `npm run build` (or `vite build`)
+    *   **Root Directory:** `./`
+    *   **Build Command:** `npm run build`
     *   **Output Directory:** `dist`
-
-    *Note: If your project is missing a `package.json` with a build script, you may need to add one. Ensure your `package.json` looks similar to this:*
-    ```json
-    {
-      "name": "office-maintenance-tracker",
-      "version": "0.0.0",
-      "scripts": {
-        "dev": "vite",
-        "build": "tsc && vite build",
-        "preview": "vite preview"
-      },
-      "dependencies": {
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0",
-        "lucide-react": "^0.292.0"
-      },
-      "devDependencies": {
-        "@types/react": "^18.2.37",
-        "@types/react-dom": "^18.2.15",
-        "@vitejs/plugin-react": "^4.2.0",
-        "typescript": "^5.2.2",
-        "vite": "^5.0.0"
-      }
-    }
-    ```
-
-4.  **Deploy:**
-    Click **"Deploy"**. Vercel will install dependencies, build your project, and assign a live URL.
+6.  **Deploy:** Click **"Deploy"**.
 
 ---
 
-## Option 2: Google Cloud Run
+## 2. Deploy to Google Cloud Run
 
-Cloud Run is a managed compute platform that runs containers. To deploy a static React app on Cloud Run, you need to wrap it in a Docker container that includes a web server (like Nginx) to serve the files.
+To deploy to Cloud Run, we use a Docker container. The necessary configuration files (`Dockerfile`, `nginx.conf`, `.dockerignore`) have been added to the project root.
 
 ### Prerequisites
-*   [Google Cloud Platform (GCP)](https://console.cloud.google.com/) account and project.
-*   [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed.
-*   Docker installed locally (optional, but good for testing).
+*   [Google Cloud SDK (gcloud)](https://cloud.google.com/sdk/docs/install) installed and authenticated.
+*   A Google Cloud Project created.
 
-### 1. Create Configuration Files
+### Configuration Files Overview
+*   **Dockerfile:** Builds the React app and sets up an Nginx server.
+*   **nginx.conf:** Configures Nginx to serve the Single Page Application (SPA) correctly, handling routing.
 
-Create the following two files in your project root to handle the containerization.
+### Deployment Steps
 
-**`Dockerfile`**
-```dockerfile
-# Stage 1: Build the application
-FROM node:18-alpine as builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+1.  **Open Terminal** in your project root.
 
-# Stage 2: Serve with Nginx
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-# Copy custom nginx config to handle React Router (SPA)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
-```
+2.  **Set your Project ID:**
+    Replace `[YOUR_PROJECT_ID]` with your actual GCP project ID.
+    ```bash
+    gcloud config set project [YOUR_PROJECT_ID]
+    ```
 
-**`nginx.conf`**
-```nginx
-server {
-    listen 8080;
-    server_name localhost;
+3.  **Build the Container Image:**
+    This sends your code to Cloud Build, which builds the Docker image and stores it in the Container Registry.
+    ```bash
+    gcloud builds submit --tag gcr.io/[YOUR_PROJECT_ID]/maintenance-tracker
+    ```
 
-    location / {
-        root /usr/share/nginx/html;
-        index index.html index.htm;
-        # This is critical for SPAs: if a file isn't found, serve index.html
-        try_files $uri $uri/ /index.html;
-    }
+4.  **Deploy to Cloud Run:**
+    This spins up the service.
+    ```bash
+    gcloud run deploy maintenance-tracker \
+      --image gcr.io/[YOUR_PROJECT_ID]/maintenance-tracker \
+      --platform managed \
+      --region us-central1 \
+      --allow-unauthenticated
+    ```
 
-    error_page 500 502 503 504 /50x.html;
-    location = /50x.html {
-        root /usr/share/nginx/html;
-    }
-}
-```
+    *   `--allow-unauthenticated`: Makes the website public.
+    *   `--region`: Selects the data center (e.g., `us-central1`, `europe-west1`).
 
-### 2. Build and Submit the Image
-
-Run the following commands in your terminal:
-
-```bash
-# 1. Login to Google Cloud
-gcloud auth login
-
-# 2. Set your project ID
-gcloud config set project [YOUR_PROJECT_ID]
-
-# 3. Enable required services
-gcloud services enable cloudbuild.googleapis.com run.googleapis.com
-
-# 4. Build the image using Cloud Build
-gcloud builds submit --tag gcr.io/[YOUR_PROJECT_ID]/office-maintenance-tracker
-```
-
-### 3. Deploy to Cloud Run
-
-Once the build is complete, deploy the service:
-
-```bash
-gcloud run deploy office-maintenance-tracker \
-  --image gcr.io/[YOUR_PROJECT_ID]/office-maintenance-tracker \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated
-```
-
-*   **--allow-unauthenticated:** Makes the app accessible to the public internet.
-*   **--region:** Choose a region close to your users.
-
-After a successful deployment, the command line will output a `Service URL` where your app is live.
+5.  **Access App:**
+    The command will output a **Service URL** (e.g., `https://maintenance-tracker-xyz-uc.a.run.app`). Click it to view your deployed app.
