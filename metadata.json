@@ -1,0 +1,5 @@
+{
+  "name": "Office Maintenance Tracker",
+  "description": "A comprehensive tool for tracking office maintenance expenses, visualizing spending, and generating Excel reports.",
+  "requestFramePermissions": []
+}
